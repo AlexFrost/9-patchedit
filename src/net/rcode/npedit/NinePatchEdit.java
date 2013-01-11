@@ -66,6 +66,8 @@ public class NinePatchEdit implements EditContext {
 			} else {
 				if ("-clear".equals(arg)) {
 					commands.add(new ClearEditCommand());
+				} else	if ("-setall".equals(arg)) {
+	                    commands.add(new SetAllClearEditCommand());
 				} else if ("-strip".equals(arg)) {
 					commands.add(new StripEditCommand());
 				} else if ("-out".equals(arg)) {
