@@ -1,15 +1,13 @@
 package net.rcode.npedit;
 
+import java.awt.Graphics2D;
+import java.awt.GraphicsConfiguration;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.io.File;
 import java.io.IOException;
 
 import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageInputStream;
-import javax.imageio.stream.ImageOutputStream;
 
 /**
  * A nine patch image loaded into memory
@@ -38,9 +36,17 @@ public class NinePatchImage {
 		if (isNinePatch) return;
 		
 		// Otherwise, we need to add a border
-		BufferedImage newImage=new BufferedImage(image.getWidth()+2, image.getHeight()+2, image.getType());
-		newImage.getRaster().setRect(1, 1, image.getRaster());
-		image=newImage;
+		Graphics2D g = image.createGraphics();
+		GraphicsConfiguration config = g.getDeviceConfiguration();
+        BufferedImage buffer = GraphicsUtilities.createTranslucentCompatibleImage(config,
+                image.getWidth() + 2, image.getHeight() + 2);
+        g.dispose();
+
+        Graphics2D g2 = buffer.createGraphics();
+        g2.drawImage(image, 1, 1, null);
+        g2.dispose();
+
+		image=buffer;
 		isNinePatch=true;
 	}
 	
@@ -48,7 +54,11 @@ public class NinePatchImage {
 		if (!isNinePatch) return;
 		
 		// Otherwise, we need to remove 2 rows and 2 columns
-		BufferedImage newImage=new BufferedImage(image.getWidth()-2, image.getHeight()-2, image.getType());
+		Graphics2D g = image.createGraphics();
+        GraphicsConfiguration config = g.getDeviceConfiguration();
+        BufferedImage newImage = GraphicsUtilities.createTranslucentCompatibleImage(config,
+                image.getWidth() - 2, image.getHeight() - 2);
+        g.dispose();
 		Raster src=image.getRaster().createChild(1, 1, newImage.getWidth(), newImage.getHeight(), 
 				0, 0, null);
 		newImage.getRaster().setRect(src);
@@ -58,14 +68,8 @@ public class NinePatchImage {
 	
 	public static NinePatchImage load(File source) throws IOException {
 		NinePatchImage ret=new NinePatchImage();
-		ret.source=source;
-		
-		ImageReader reader=ImageUtil.getPngReader();	
-		ImageInputStream in=ImageIO.createImageInputStream(source);
-		reader.setInput(in);
-		ret.image=reader.read(0);
-		reader.dispose();
-		in.close();
+		ret.source=source;        
+		ret.image=GraphicsUtilities.loadCompatibleImage(source.toURI().toURL());
 
 		// Detect if nine patch or not
 		String name=source.getName();
@@ -92,15 +96,11 @@ public class NinePatchImage {
 	}
 	
 	public void save(File outputFile) throws IOException {
-		ImageOutputStream out=ImageIO.createImageOutputStream(outputFile);
-		try {
-			ImageWriter writer=ImageUtil.getPngWriter();
-			writer.setOutput(out);
-			writer.write(image);
-			writer.dispose();
-		} finally {
-			out.close();
-		}
+        try {
+            ImageIO.write(image, "PNG", outputFile);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 	}
 
 	public static boolean validatePixel(int pixel) {
@@ -171,7 +171,11 @@ public class NinePatchImage {
 		
 		int[] colMarkers=getMarkers(MODE_SCALEX);
 		int[] rowMarkers=getMarkers(MODE_SCALEY);
-		BufferedImage dest=new BufferedImage(targetWidth, targetHeight, image.getType());
+		Graphics2D g = image.createGraphics();
+        GraphicsConfiguration config = g.getDeviceConfiguration();
+		BufferedImage dest = GraphicsUtilities.createTranslucentCompatibleImage(config,
+		         targetWidth, targetHeight);
+		g.dispose(); 
 		
 		int colLoops=0, colRem=0;
 		if (colMarkers.length>0) {
